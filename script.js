@@ -429,6 +429,10 @@ const zoomReadout = document.querySelector("#zoomReadout");
 const resetViewButton = document.querySelector("#resetView");
 const themeToggle = document.querySelector("#themeToggle");
 
+function initialHiddenTopics() {
+  return new Set(archiveData.slice(15).map((topic) => topic.id));
+}
+
 const state = {
   scale: 0.72,
   offsetX: 70,
@@ -439,7 +443,7 @@ const state = {
   rowHeight: 144,
   showLabels: labelToggle.checked,
   showGrid: gridToggle.checked,
-  hiddenTopics: new Set(),
+  hiddenTopics: initialHiddenTopics(),
   pointer: { x: 0, y: 0 },
   hovered: null,
   isDragging: false,
