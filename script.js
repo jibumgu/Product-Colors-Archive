@@ -451,6 +451,8 @@ const state = {
   reorderTopicId: null,
   handleHoverTopicId: null,
   topicFilter: "",
+  activePointers: new Map(),
+  pinchStart: null,
   dragStart: { x: 0, y: 0 },
   lastOffset: { x: 0, y: 0 },
   topicOrder: archiveData.map((topic) => topic.id),
@@ -477,6 +479,17 @@ const layout = {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function isCompactViewport() {
+  return (canvas.clientWidth || window.innerWidth) <= 1024;
+}
+
+function setPanelCollapsed(collapsed) {
+  appShell.classList.toggle("panel-collapsed", collapsed);
+  panelToggle.textContent = collapsed ? "<" : ">";
+  panelToggle.setAttribute("aria-label", collapsed ? "Show controls" : "Hide controls");
+  panelToggle.setAttribute("aria-expanded", String(!collapsed));
 }
 
 function canvasTheme() {
@@ -775,7 +788,7 @@ function applyGuidedView() {
   const width = canvas.clientWidth || window.innerWidth;
   const height = canvas.clientHeight || window.innerHeight;
 
-  state.scale = width < 520 ? 0.38 : width < 820 ? 0.52 : initialView.scale;
+  state.scale = width < 520 ? 0.62 : width < 1024 ? 0.68 : initialView.scale;
   state.offsetX = Math.min(initialView.offsetX, Math.max(22, width * 0.055));
   state.offsetY = Math.min(initialView.offsetY, Math.max(58, height * 0.12));
   constrainViewToArchive();
@@ -1186,6 +1199,52 @@ function updateTooltip(event) {
   tooltip.hidden = false;
 }
 
+function pointerCenter(pointers) {
+  return {
+    x: (pointers[0].x + pointers[1].x) / 2,
+    y: (pointers[0].y + pointers[1].y) / 2
+  };
+}
+
+function pointerDistance(pointers) {
+  return Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+}
+
+function startPinch() {
+  const pointers = Array.from(state.activePointers.values());
+  if (pointers.length < 2) return;
+
+  state.isDragging = false;
+  state.isReordering = false;
+  state.reorderTopicId = null;
+  state.handleHoverTopicId = null;
+  state.hovered = null;
+  tooltip.hidden = true;
+
+  const center = pointerCenter(pointers);
+  state.pinchStart = {
+    distance: Math.max(1, pointerDistance(pointers)),
+    scale: state.scale,
+    center,
+    worldCenter: worldFromScreen(center.x, center.y)
+  };
+}
+
+function updatePinch() {
+  if (!state.pinchStart || state.activePointers.size < 2) return false;
+
+  const pointers = Array.from(state.activePointers.values());
+  const center = pointerCenter(pointers);
+  const ratio = pointerDistance(pointers) / state.pinchStart.distance;
+
+  state.scale = clamp(state.pinchStart.scale * ratio, 0.045, 8);
+  state.offsetX = center.x - state.pinchStart.worldCenter.x * state.scale;
+  state.offsetY = center.y - state.pinchStart.worldCenter.y * state.scale;
+  constrainViewToArchive();
+  draw();
+  return true;
+}
+
 canvas.addEventListener("wheel", (event) => {
   event.preventDefault();
   const rect = canvas.getBoundingClientRect();
@@ -1203,7 +1262,21 @@ canvas.addEventListener("wheel", (event) => {
 
 canvas.addEventListener("pointerdown", (event) => {
   const rect = canvas.getBoundingClientRect();
-  const handle = handleHitTest(event.clientX - rect.left, event.clientY - rect.top);
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  state.activePointers.set(event.pointerId, { x, y });
+  canvas.setPointerCapture(event.pointerId);
+
+  if (state.activePointers.size >= 2) {
+    canvas.classList.add("is-dragging");
+    canvas.style.cursor = "grabbing";
+    startPinch();
+    draw();
+    return;
+  }
+
+  const handle = handleHitTest(x, y);
 
   if (handle) {
     state.isReordering = true;
@@ -1220,7 +1293,6 @@ canvas.addEventListener("pointerdown", (event) => {
   }
 
   canvas.classList.add("is-dragging");
-  canvas.setPointerCapture(event.pointerId);
 });
 
 canvas.addEventListener("pointermove", (event) => {
@@ -1228,6 +1300,16 @@ canvas.addEventListener("pointermove", (event) => {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
   state.pointer = { x, y };
+
+  if (state.activePointers.has(event.pointerId)) {
+    state.activePointers.set(event.pointerId, { x, y });
+  }
+
+  if (updatePinch()) {
+    canvas.style.cursor = "grabbing";
+    tooltip.hidden = true;
+    return;
+  }
 
   if (state.isReordering) {
     canvas.style.cursor = "grabbing";
@@ -1275,6 +1357,8 @@ canvas.addEventListener("pointermove", (event) => {
 });
 
 canvas.addEventListener("pointerup", (event) => {
+  state.activePointers.delete(event.pointerId);
+  state.pinchStart = null;
   state.isDragging = false;
   state.isReordering = false;
   state.reorderTopicId = null;
@@ -1285,7 +1369,21 @@ canvas.addEventListener("pointerup", (event) => {
   draw();
 });
 
+canvas.addEventListener("pointercancel", (event) => {
+  state.activePointers.delete(event.pointerId);
+  state.pinchStart = null;
+  state.isDragging = false;
+  state.isReordering = false;
+  state.reorderTopicId = null;
+  state.handleHoverTopicId = null;
+  canvas.classList.remove("is-dragging");
+  canvas.style.cursor = "grab";
+  draw();
+});
+
 canvas.addEventListener("pointerleave", () => {
+  state.activePointers.clear();
+  state.pinchStart = null;
   state.hovered = null;
   tooltip.hidden = true;
   state.isReordering = false;
@@ -1346,10 +1444,8 @@ themeToggle.addEventListener("click", () => {
 });
 
 panelToggle.addEventListener("click", () => {
-  const collapsed = appShell.classList.toggle("panel-collapsed");
-  panelToggle.textContent = collapsed ? "<" : ">";
-  panelToggle.setAttribute("aria-label", collapsed ? "Show controls" : "Hide controls");
-  panelToggle.setAttribute("aria-expanded", String(!collapsed));
+  const collapsed = !appShell.classList.contains("panel-collapsed");
+  setPanelCollapsed(collapsed);
   if (state.showGrid) {
     constrainViewToArchive();
   } else {
@@ -1362,4 +1458,5 @@ window.addEventListener("resize", resizeCanvas);
 window.visualViewport?.addEventListener("resize", resizeCanvas);
 
 buildTopicList();
+setPanelCollapsed(isCompactViewport());
 resizeCanvas();
