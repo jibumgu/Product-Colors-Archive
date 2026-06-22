@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product Colors Archive</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage" aria-label="Colors Archive canvas">
+        <canvas id="archiveCanvas"></canvas>
+        <div id="tooltip" class="tooltip" hidden></div>
+      </section>
+
+      <button id="panelToggle" class="panel-toggle" type="button" aria-label="Hide controls" aria-expanded="true">
+        &gt;
+      </button>
+
+      <aside class="panel" aria-label="Archive controls">
+        <div class="panel-head">
+          <div class="brand">
+            <h1>Product Colors Archive</h1>
+            <p class="subtitle">Traces of color left by time</p>
+          </div>
+          <button id="themeToggle" class="theme-toggle" type="button" aria-label="Turn on dark mode" aria-pressed="false">
+            <span aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="readout">
+          <span id="zoomReadout">100%</span>
+          <button id="resetView" type="button">Reset</button>
+        </div>
+
+        <div class="mode-switch" aria-label="Display mode">
+          <button id="bandMode" class="is-active" type="button" aria-pressed="true">Bands</button>
+          <button id="dotMode" type="button" aria-pressed="false">Dots</button>
+        </div>
+
+        <div class="switch-row">
+          <label>
+            <input id="labelToggle" type="checkbox" checked />
+            <span>Years</span>
+          </label>
+          <label>
+            <input id="gridToggle" type="checkbox" checked />
+            <span>Guides</span>
+          </label>
+        </div>
+
+        <div class="topic-search">
+          <label for="topicSearch">Search topics</label>
+          <input id="topicSearch" type="search" autocomplete="off" placeholder="Find a product line" />
+          <span id="topicCount" aria-live="polite"></span>
+        </div>
+
+        <div class="topic-list" id="topicList" aria-label="Topics"></div>
+      </aside>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

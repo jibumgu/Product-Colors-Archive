@@ -1,0 +1,12 @@
+{
+  "name": "product-colors-archive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An interactive canvas archive of product color histories.",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs",
+    "check": "node --check script.js"
+  },
+  "license": "UNLICENSED"
+}
