@@ -621,7 +621,7 @@ function drawBackground(width, height) {
   const theme = canvasTheme();
 
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, width, height);
@@ -1359,6 +1359,7 @@ panelToggle.addEventListener("click", () => {
 });
 
 window.addEventListener("resize", resizeCanvas);
+window.visualViewport?.addEventListener("resize", resizeCanvas);
 
 buildTopicList();
 resizeCanvas();
